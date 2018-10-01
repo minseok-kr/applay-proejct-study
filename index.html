@@ -1,0 +1,167 @@
+<!doctype html>
+<html>
+
+<head>
+    <title>Simple Chat</title>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css" integrity="sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO"
+        crossorigin="anonymous">
+    <link rel="stylesheet" href="./index.css" />
+
+    <!-- #4 Google Auth-->
+    <meta name="google-signin-scope" content="profile email">
+    <meta name="google-signin-client_id" content="YOUR_FIREBASE_CLIENT_ID">
+    <script src="https://apis.google.com/js/platform.js" async defer></script>
+    <!-- #4 Google Auth-->
+</head>
+
+<body>
+    <div class="container">
+        <h3 id="title">Chat</h3>
+
+        <!-- #4 Google Auth-->
+        <div class="g-signin2 auth-btn" id="btn_signin" data-onsuccess="onSignIn"></div>
+        <a href="#" onclick="onSignOut();" class="auth-btn" id="btn_signout" hidden>Sign out</a>
+        <!-- #4 Google Auth-->
+
+        <div class="input-group mb-3" id="container_input" hidden>
+            <div class="input-group-prepend">
+                <span class="input-group-text" id="basic-addon1">></span>
+            </div>
+            <input type="text" class="form-control" id="input_text" placeholder="메시지를 입력하세요." aria-label="input"
+                aria-describedby="basic-addon1">
+        </div>
+
+        <div id="container_card"></div>
+    </div>
+</body>
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/5.4.2/firebase.js"></script>
+<script>
+    $(function() {
+        connectWithDB();
+    })
+    
+    /**
+    * #1 Web
+    * Key Event
+    */
+    var userId = "";
+    var userImg = "";
+    let inputText = $("#input_text");
+    let containerCards = $("#container_card");
+
+    $(window).keypress(function (e) {
+        if (e.which == 13 && inputText.val().length != 0) {
+            addMessageToDB(inputText.val());
+
+            inputText.val("");
+        }
+    })
+
+    /**
+    * #1 Web
+    * Make card with card template.
+    */
+    function makeCard(userId, userImg, msg) {
+        return `<div class="card" style="width:100%; margin-right: 10px; margin-bottom: 5px; ">
+            <div class="card-body">
+                <img class="img-user" style="display: inline-block" src="` + userImg + `"/>
+                <span style="display: inline-block" class="card-text">` + userId + `: ` + msg + `</span>
+            </div>
+        </div>`;
+    }
+
+    /*
+    * #2 Hosting: Firebase
+    * Initialize Firebase.
+    */
+    var config = {
+        apiKey: "YOUR_FIREBASE_API",
+        authDomain: "YOUR_FIREBASE_DOMAIN",
+        databaseURL: "YOUR_FIREBASE_DATABASE_URL",
+        projectId: "YOUR_FIREBASE_PROJECT_NAME",
+        storageBucket: "",
+        messagingSenderId: "YOUR_FIREBASE_SENDER_ID"
+    };
+    firebase.initializeApp(config);
+
+    /**
+    * #3 Google Auth
+    * Login
+    */
+    function onSignIn(googleUser) {
+        // Useful data for your client-side scripts:
+        var profile = googleUser.getBasicProfile();
+        userId = profile.getGivenName();
+        userImg = profile.getImageUrl();
+
+        $('#container_input').removeAttr("hidden");
+        $('#btn_signout').removeAttr("hidden")
+        $('#btn_signin').attr("hidden", true);
+
+        $("#title").text(profile.getGivenName() + "님");
+    };
+
+    /**
+    * #3 Google Auth
+    * Logout
+    */
+    function onSignOut() {
+        var auth2 = gapi.auth2.getAuthInstance();
+        auth2.signOut().then(function () {
+            userId = "";
+
+            $('#container_input').attr("hidden", true);
+            $('#btn_signin').removeAttr("hidden");
+            $('#btn_signout').attr("hidden", true);
+
+            $("#title").text("Chat");
+        });
+    }
+
+    /**
+   * #4 DB: FireStore
+   * Set Firestore Configuration.
+   */
+    const firestore = firebase.firestore();
+    const settings = { timestampsInSnapshots: true };
+    firestore.settings(settings);
+
+    var db = firebase.firestore();
+
+    /**
+    * #4 DB: Firestore
+    * Add Message to Firestore DB.
+    */
+    function addMessageToDB(msg) {
+        var numOfCard = $(".card").length;
+
+        db.collection("messages").add({
+            id: numOfCard,
+            text: msg,
+            userId: userId,
+            userImg: userImg
+        }).then(function (docRef) {
+            console.log("Document written with ID: ", docRef.id);
+        })
+    }
+
+    /**
+    * #4 DB: Firestore
+    * Connect With Firestore DB.
+    */
+    function connectWithDB() {
+        db.collection("messages").orderBy("id").onSnapshot(function (snapshot) {
+            snapshot.docChanges().forEach((change) => {
+                if (change.type == "added") {
+                    data = change.doc.data()
+                    containerCards.prepend(makeCard(data.userId, data.userImg, data.text))
+                }
+            })
+        })
+    }
+</script>
+
+</html>
